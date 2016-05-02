@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+		<head>
+				<script>
+				 var uri = "http://localhost:1111";
+				 function asyncRequest(uri, f) {
+						 var xmlhttp;
+						 if (window.XMLHttpRequest) {
+								 xmlhttp = new XMLHttpRequest();
+						 } else {
+								 xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
+						 }
+						 xmlhttp.onreadystatechange = function() {
+								 if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
+										 f(xmlhttp.responseText);
+								 }
+						 };
+						 xmlhttp.open("GET", uri, true);
+						 xmlhttp.send();
+				 }
+
+				 // badStatusF is called with the body and status code, if a non-200 is returned
+				 function asyncRequestHandleBad(uri, f, badStatusF) {
+						 var xmlhttp;
+						 if (window.XMLHttpRequest) {
+								 xmlhttp = new XMLHttpRequest();
+						 } else {
+								 xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
+						 }
+						 xmlhttp.onreadystatechange = function() {
+								 if (xmlhttp.readyState == 4) {
+										 if (xmlhttp.status == 200) {
+												 f(xmlhttp.responseText);
+										 } else {
+												 badStatusF(xmlhttp.status, xmlhttp.responseText);
+										 }
+								 }
+						 };
+						 xmlhttp.open("GET", uri, true);
+						 xmlhttp.send();
+				 }
+
+				 function addPostOrShare(p) {
+						 var cdiv = document.createElement('div');
+						 cdiv.id = "postorshare" + p.id;
+						 cdiv.className = "postorshare";
+
+						 cdiv.innerHTML = p.title + "<br />" + p.user + " 💬 " + p.comment_count + "<br />";
+						 var precedingText = false;
+						 if (p.domain != "") {
+								 cdiv.innerHTML += p.domain;
+								 precedingText = true;
+						 }
+						 if (p.tag != "") {
+								 if (precedingText) {
+										 cdiv.innerHTML += " . "
+								 }
+								 cdiv.innerHTML += p.tag;
+								 precedingText = true;
+						 }
+						 if (p.tag2 != "") {
+								 if (precedingText) {
+										 cdiv.innerHTML += " . "
+								 }
+								 cdiv.innerHTML += p.tag2
+						 }
+						 cdiv.innerHTML += "<hr />"
+
+						 document.getElementById("posts-and-shares-pane").appendChild(cdiv);
+				 }
+
+				 function setPostsAndShares(psResponse) {
+						 ps = JSON.parse(psResponse);
+						 for (var i = 0; i < ps.length; i++) {
+								 addPostOrShare(ps[i]);
+						 }
+				 }
+
+				 function addComment(comment) {
+						 var cdiv = document.createElement('div');
+						 cdiv.id = "comment" + comment.id;
+						 cdiv.className = "comment";
+						 cdiv.innerHTML = comment.user + " . link . parent ";
+						 if (comment.draft) {
+								 cdiv.innerHTML += "[draft] ";
+						 }
+						 if (comment.deleted) {
+								 cdiv.innerHTML += "[deleted] ";
+						 }
+						 cdiv.innerHTML += " . post: " +  comment.post_title + "<br />" + comment.md + "<br /><br /><hr />"
+
+						 document.getElementById("comments-pane").appendChild(cdiv);
+				 }
+
+				 function setComments(commentsResponse) {
+						 comments = JSON.parse(commentsResponse);
+						 for (var i = 0; i < comments.length; i++) {
+								 addComment(comments[i]);
+						 }
+				 }
+
+				 function setUserData(userDataResponse) {
+						 userData = JSON.parse(userDataResponse)
+						 document.title = userData.name + "'s feed";
+						 document.getElementById("top-pane-username").innerHTML = userData.name;
+						 document.getElementById("user-data-pane-name").innerHTML = userData.name;
+						 document.getElementById("user-data-pane-badges").innerHTML = "Badges: " + userData.badges;
+						 document.getElementById("user-data-pane-followers").innerHTML = "Followers: " + userData.followers;
+						 document.getElementById("user-data-pane-bio").innerHTML = "Bio: " + userData.bio;
+						 document.getElementById("user-data-pane-following").innerHTML = "following: " + userData.following;
+						 document.getElementById("user-data-pane-followed-tags").innerHTML = "folowed tags: " + userData.followed_tags;
+						 document.getElementById("user-data-pane-followed-domains").innerHTML = "followed domains: " + userData.followed_domains;
+						 document.getElementById("user-data-pane-badges-given").innerHTML = "badges given: " + userData.badges_given;
+						 document.getElementById("user-data-pane-member-for").innerHTML = "member for: " + Math.floor((new Date() - new Date(userData.joined)) / (1000*60*60*24)) + " days";
+						 document.getElementById("user-data-pane-style").innerHTML = "style: " + userData.style;
+						 document.getElementById("user-data-pane-donated").innerHTML = "donated: $" + userData.donated_cents / 100.0;
+						 document.getElementById("user-data-pane-donated-this-year").innerHTML = "donated in 2016: $" + userData.donated_cents_this_year / 100.0;
+						 for (var i = 0; i < userData.tags_used.length - 1; i++) {
+								 document.getElementById("user-data-pane-tags-used").innerHTML += "#" + userData.tags_used[i] + "<br />";
+						 }
+						 document.getElementById("user-data-pane-tags-used").innerHTML += "#" + userData.tags_used[userData.tags_used.length - 1];
+				 }
+
+				 function loadData(token) {
+						 asyncRequest(uri + "/user-page-data/" + token, setUserData);
+						 asyncRequest(uri + "/user-page-comments/" + token, setComments);
+						 asyncRequest(uri + "/user-page-posts-and-shares/" + token, setPostsAndShares);
+				 }
+
+				 function onLoadLoginSuccess(token) {
+						 loadData(token);
+				 }
+
+				 function onLoadLoginFail(status, body) {
+						 if (status != 401) {
+								 alert("Unknown status: " + status);
+								 return;
+						 }
+						 var token = prompt("Bad login. If you have a token, enter it here");
+						 if (!token) {
+								 alert("No token. No data for you.");
+								 return;
+						 }
+						 loadData(token);
+				 }
+
+				 function onload() {
+						 var requestPath = uri + "/login/";
+						 var user = prompt("user");
+						 if (!user) {
+								 user = "nonexistentusertomakethelogincodeeasyasdfasdfasdfasdfasdfasdfasdfasdf";
+						 }
+						 requestPath += user;
+						 var pass = prompt("password");
+						 if (!pass) {
+								 pass = "nonemptytomakehtelogineasy";
+						 }
+						 requestPath += "/" + pass;
+						 asyncRequestHandleBad(requestPath, onLoadLoginSuccess, onLoadLoginFail);
+				 }
+				</script>
+				<meta charset="UTF-8">
+				<title>hubski user feed</title>
+		</head>
+
+		<body onload="onload()">
+				<div id="top-pane">
+						<span id="top-pane-hubwheel"></span>
+						<span id="top-pane-username"></span>
+						<span id="top-pane-badgewheel"></span>
+				</div>
+				<div id="user-data-pane">
+						<h1>user data</h1>
+						<div id="user-data-pane-name"></div>
+						<div id="user-data-pane-badges"></div>
+						<div id="user-data-pane-followers"></div>
+						<div id="user-data-pane-bio"></div>
+						<h2>stats</h2>
+						<div id="user-data-pane-following"></div>
+						<div id="user-data-pane-followed-tags"></div>
+						<div id="user-data-pane-followed-domains"></div>
+						<div id="user-data-pane-badges-given"></div>
+						<div id="user-data-pane-member-for"></div>
+						<div id="user-data-pane-style"></div>
+						<div id="user-data-pane-donated"></div>
+						<div id="user-data-pane-donated-this-year"></div>
+						<h2>tags used</h2>
+						<div id="user-data-pane-tags-used"></div>
+				</div>
+				<div id="comments-pane">
+						<h1>comments</h1>
+				</div>
+				<div id="posts-and-shares-pane">
+						<h1>posts and shares</h1>
+				</div>
+		</body>
+</html>
